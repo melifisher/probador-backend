@@ -28,10 +28,10 @@ app.get('/api/products', async (req, res) => {
 
 app.post('/api/products', async (req, res) => {
   try {
-    const { name, description, talla, price, imagen, disponible, modelo_url } = req.body;
+    const { nombre, descripcion, talla, precio, imagen, disponible, modelo_url } = req.body;
     const { rows } = await pool.query(
-      'INSERT INTO product (nonmbe, descripcion, talla, precio, imagen, disponible, modelo_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [name, description, talla, price, imagen, disponible, modelo_url]
+      'INSERT INTO product (nombre, descripcion, talla, precio, imagen, disponible, modelo_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [nombre, descripcion, talla, precio, imagen, disponible, modelo_url]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -43,10 +43,10 @@ app.post('/api/products', async (req, res) => {
 app.put('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, talla, price, imagen, disponible, modelo_url } = req.body;
+    const { nombre, descripcion, talla, precio, imagen, disponible, modelo_url } = req.body;
     const { rows } = await pool.query(
       'UPDATE product SET nonmbre = $1, descripcion = $2, talla = $3, precio = $4, imagen = $5, disponible = $6, modelo_url = $7 WHERE id = $8 RETURNING *',
-      [name, description, talla, price, imagen, disponible, modelo_url, id]
+      [nombre, descripcion, talla, precio, imagen, disponible, modelo_url, id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Product not found' });
