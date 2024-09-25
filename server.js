@@ -14,7 +14,7 @@ const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'probador',
-  password: 'password',
+  password: '1999',
   port: 5432,
 });
 
@@ -28,7 +28,7 @@ app.post('/api/login', async (req, res) => {
       const user = result.rows[0];
       if (await bcrypt.compare(password, user.password)) {
         const token = jwt.sign({ id: user.id, nombre: user.nombre, rol: user.rol }, SECRET_KEY);
-        res.json({ id: user.id, nombre: user.nombre, rol: user.rol, email: user.email, telefono: user.telefono, token });
+        res.json({ id: user.id.toString(), nombre: user.nombre, rol: user.rol,token });
       } else {
         res.status(400).json({ error: 'Invalid credentials' });
       }
