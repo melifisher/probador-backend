@@ -29,7 +29,7 @@ app.post('/api/login', async (req, res) => {
       if (await bcrypt.compare(password, user.password)) {
         // Convertimos el id a string
         const token = jwt.sign({ id: user.id.toString(), username: user.username, rol: user.rol }, SECRET_KEY);
-        res.json({ id: user.id, username: user.username, rol: user.rol, email: user.email, token });
+        res.json({ id: user.id.toString(), username: user.username, rol: user.rol, email: user.email, token });
       } else {
         res.status(400).json({ error: 'Invalid credentials' });
       }
@@ -50,8 +50,10 @@ app.post('/api/register', async (req, res) => {
       [username, hashedPassword, rol]
     );
     const newUser = result.rows[0];
-    const token = jwt.sign({ id: newUser.id, username: newUser.username, rol: newUser.rol }, SECRET_KEY);
-    res.status(201).json({ ...newUser, token });
+     // Convertimos el id a string
+     const token = jwt.sign({ id: newUser.id.toString(), username: newUser.username, rol: newUser.rol }, SECRET_KEY);
+    // Devolvemos el id como string
+    res.status(201).json({ ...newUser, id: newUser.id.toString(), token });
   } catch (error) {
     if (error.constraint === 'user_nombre_key') {
       res.status(400).json({ error: 'Username already exists' });
@@ -86,16 +88,19 @@ app.get('/api/products/category/:id', async (req, res) => {
 app.post('/api/products', async (req, res) => {
   try {
     const { nombre, talla, color, precio, imagen, disponible, modelo_url, categoria_id } = req.body;
+    const categoria_id_int = parseInt(categoria_id, 10);  // Convertir categoria_id a entero si es necesario
+   // console.log("Recibido desde frontend:", req.body);  // Loguea lo que recibes del frontend
     const { rows } = await pool.query(
       'INSERT INTO product (nombre, talla, color, precio, imagen, disponible, modelo_url, categoria_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [nombre, talla, color, precio, imagen, disponible, modelo_url, categoria_id]
+      [nombre, talla, color, precio, imagen, disponible, modelo_url, categoria_id_int]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error('Error al insertar producto:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 app.put('/api/products/:id', async (req, res) => {
   try {
@@ -134,7 +139,12 @@ app.delete('/api/products/:id', async (req, res) => {
 app.get('/api/categories', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM categoria');
-    res.json(rows);
+    // Convertimos los IDs a string
+    const categories = rows.map(category => ({
+      ...category,
+      id: category.id.toString()
+    }));
+    res.json(categories);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
