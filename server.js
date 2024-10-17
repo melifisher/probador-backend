@@ -1,5 +1,5 @@
 const express = require('express');
-const { Pool } = require('pg');
+const { pool } = require('./db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
@@ -9,14 +9,6 @@ const port = 3000;
 
 app.use(cors());
 app.use(express.json());
-
-const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'probador',
-  password: '1999',
-  port: 5432,
-});
 
 const SECRET_KEY = 'token';
 
@@ -74,6 +66,20 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query('SELECT * FROM product WHERE id = $1', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.get('/api/products/category/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -100,7 +106,6 @@ app.post('/api/products', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 
 app.put('/api/products/:id', async (req, res) => {
   try {
@@ -206,6 +211,182 @@ app.delete('/api/categories/:id', async (req, res) => {
       return res.status(404).json({ error: 'Category not found' });
     }
     res.status(204).json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+//Alquiler
+// GET all rentals
+app.get('/api/rentals', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM alquiler');
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET a specific rental
+app.get('/api/rentals/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query('SELECT * FROM alquiler WHERE id = $1', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Rental not found' });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET rentals by user_id
+app.get('/api/rentals/user/:user_id', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const { rows } = await pool.query('SELECT * FROM alquiler WHERE user_id = $1', [user_id]);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST a new rental
+app.post('/api/rentals', async (req, res) => {
+  try {
+    const { estado, fecha_devolucion, fecha_reserva, precio, user_id } = req.body;
+    const { rows } = await pool.query(
+      'INSERT INTO alquiler (estado, fecha_devolucion, fecha_reserva, precio, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [estado, fecha_devolucion, fecha_reserva, precio, user_id]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT (update) a rental
+app.put('/api/rentals/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { estado, fecha_devolucion, fecha_reserva, precio, user_id } = req.body;
+    const { rows } = await pool.query(
+      'UPDATE alquiler SET estado = $1, fecha_devolucion = $2, fecha_reserva = $3, precio = $4, user_id = $5 WHERE id = $6 RETURNING *',
+      [estado, fecha_devolucion, fecha_reserva, precio, user_id, id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Rental not found' });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE a rental
+app.delete('/api/rentals/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query('DELETE FROM alquiler WHERE id = $1 RETURNING *', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Rental not found' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET all rental details
+app.get('/api/rental-details', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM detalle_alquiler');
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET rental details by alquiler_id
+app.get('/api/rental-details/rental/:alquiler_id', async (req, res) => {
+  try {
+    const { alquiler_id } = req.params;
+    const { rows } = await pool.query('SELECT * FROM detalle_alquiler WHERE alquiler_id = $1', [alquiler_id]);
+    //console.log(rows);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET a specific rental detail
+app.get('/api/rental-details/:alquiler_id/:product_id', async (req, res) => {
+  try {
+    const { alquiler_id, product_id } = req.params;
+    const { rows } = await pool.query('SELECT * FROM detalle_alquiler WHERE alquiler_id = $1 AND product_id = $2', [alquiler_id, product_id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Rental detail not found' });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST a new rental detail
+app.post('/api/rental-details', async (req, res) => {
+  try {
+    const { alquiler_id, product_id, cantidad, precio, talla, color  } = req.body;
+    const { rows } = await pool.query(
+      'INSERT INTO detalle_alquiler (alquiler_id, product_id, cantidad, precio, talla, color) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [alquiler_id, product_id, cantidad, precio, talla, color]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT (update) a rental detail
+app.put('/api/rental-details/:alquiler_id/:product_id', async (req, res) => {
+  try {
+    const { alquiler_id, product_id } = req.params;
+    const { cantidad, precio, talla, color } = req.body;
+    const { rows } = await pool.query(
+      'UPDATE detalle_alquiler SET cantidad = $1 AND precio = $2 AND talla = $3 AND color = $4 WHERE alquiler_id = $5 AND product_id = $6 RETURNING *',
+      [cantidad, precio, talla, color, alquiler_id, product_id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Rental detail not found' });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE a rental detail
+app.delete('/api/rental-details/:alquiler_id/:product_id', async (req, res) => {
+  try {
+    const { alquiler_id, product_id } = req.params;
+    const { rows } = await pool.query('DELETE FROM detalle_alquiler WHERE alquiler_id = $1 AND product_id = $1 RETURNING *', [alquiler_id, product_id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Rental detail not found' });
+    }
+    res.status(204).send();
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
