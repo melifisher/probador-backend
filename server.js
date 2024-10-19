@@ -19,6 +19,7 @@ app.post('/api/login', async (req, res) => {
     if (result.rows.length > 0) {
       const user = result.rows[0];
       if (await bcrypt.compare(password, user.password)) {
+        console.log('Contraseña coincide');
         // Convertimos el id a string
         const token = jwt.sign({ id: user.id.toString(), username: user.username, rol: user.rol }, SECRET_KEY);
         res.json({ id: user.id.toString(), username: user.username, rol: user.rol, email: user.email, token });
@@ -392,6 +393,57 @@ app.delete('/api/rental-details/:alquiler_id/:product_id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
+//Carrito
+app.post('/api/cart', async (req, res) => {
+  try {
+    const { user_id, product_id, cantidad, talla, color, rental_days } = req.body;
+
+    console.log("Datos recibidos: ", req.body);
+    const result = await pool.query(
+      `INSERT INTO cart (user_id, product_id, cantidad, talla, color, rental_days)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (user_id, product_id) DO UPDATE SET
+       cantidad = cart.cantidad + EXCLUDED.cantidad,
+       rental_days = EXCLUDED.rental_days
+       RETURNING *`,
+      [user_id, product_id, cantidad, talla, color, rental_days]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error adding product to cart' });
+  }
+});
+
+
+//obtener los productos segun id usuario 
+app.get('/api/cart/:user_id', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const result = await pool.query(
+      'SELECT cart.*, product.nombre, product.precio, product.imagen FROM cart JOIN product ON cart.product_id = product.id WHERE cart.user_id = $1',
+      [user_id]
+    );
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error fetching cart items' });
+  }
+});
+//Eliminar producto del carrito 
+app.delete('/api/cart/:user_id/:product_id', async (req, res) => {
+  try {
+    const { user_id, product_id } = req.params;
+    await pool.query('DELETE FROM cart WHERE user_id = $1 AND product_id = $2', [user_id, product_id]);
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error removing product from cart' });
+  }
+});
+
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
