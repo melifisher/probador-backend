@@ -3,6 +3,8 @@ const { pool } = require('./db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const NodeCache = require('node-cache');
+const { RecommendationService } = require('./recommendations.service');
 
 const app = express();
 const port = 3000;
@@ -60,6 +62,16 @@ app.post('/api/register', async (req, res) => {
 app.get('/api/products', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM product');
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/products/disponibles', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM product WHERE disponible = true');
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -260,10 +272,10 @@ app.get('/api/rentals/user/:user_id', async (req, res) => {
 // POST a new rental
 app.post('/api/rentals', async (req, res) => {
   try {
-    const { estado, fecha_devolucion, fecha_reserva, precio, user_id } = req.body;
+    const { estado, fecha_devolucion, fecha_reserva, precio_total, user_id } = req.body;
     const { rows } = await pool.query(
-      'INSERT INTO alquiler (estado, fecha_devolucion, fecha_reserva, precio, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [estado, fecha_devolucion, fecha_reserva, precio, user_id]
+      'INSERT INTO alquiler (estado, fecha_devolucion, fecha_reserva, precio_total, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [estado, fecha_devolucion, fecha_reserva, precio_total, user_id]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -276,10 +288,10 @@ app.post('/api/rentals', async (req, res) => {
 app.put('/api/rentals/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { estado, fecha_devolucion, fecha_reserva, precio, user_id } = req.body;
+    const { estado, fecha_devolucion, fecha_reserva, precio_total, user_id } = req.body;
     const { rows } = await pool.query(
-      'UPDATE alquiler SET estado = $1, fecha_devolucion = $2, fecha_reserva = $3, precio = $4, user_id = $5 WHERE id = $6 RETURNING *',
-      [estado, fecha_devolucion, fecha_reserva, precio, user_id, id]
+      'UPDATE alquiler SET estado = $1, fecha_devolucion = $2, fecha_reserva = $3, precio_total = $4, user_id = $5 WHERE id = $6 RETURNING *',
+      [estado, fecha_devolucion, fecha_reserva, precio_total, user_id, id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Rental not found' });
@@ -444,6 +456,54 @@ app.delete('/api/cart/:user_id/:product_id', async (req, res) => {
   }
 });
 
+const cache = new NodeCache({ stdTTL: 3600 }); // Cache for 1 hour
+
+app.get('/api/products/:id/full', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check cache first
+    const cachedData = cache.get(`product:${id}:full`);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    // Get all data in parallel
+    const [product, similarProducts, categoryProducts, popularInCategory] = await Promise.all([
+      pool.query('SELECT * FROM product_category_view WHERE id = $1', [id]),
+      pool.query('SELECT * FROM product WHERE categoria_id = (SELECT categoria_id FROM product WHERE id = $1) LIMIT 5', [id]),
+      pool.query('SELECT * FROM product WHERE categoria_id = (SELECT categoria_id FROM product WHERE id = $1) LIMIT 10', [id]),
+      pool.query('SELECT * FROM popular_products_view WHERE categoria_id = (SELECT categoria_id FROM product WHERE id = $1) ORDER BY rental_count DESC LIMIT 5', [id])
+    ]);
+
+    const response = {
+      product: product.rows[0],
+      similarProducts: similarProducts.rows,
+      categoryProducts: categoryProducts.rows,
+      popularInCategory: popularInCategory.rows
+    };
+
+    // Cache the response
+    cache.set(`product:${id}:full`, response);
+
+    res.json(response);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/recommendations/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const recommendationService = new RecommendationService(pool);
+    const recommendations = await recommendationService.getRecommendationsForUser(parseInt(userId));
+    res.status(200).json(recommendations);
+  } catch (error) {
+    console.error('Error en controller:', error);
+    res.status(500).json({ error: 'Error al obtener recomendaciones' });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
