@@ -4,7 +4,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const NodeCache = require('node-cache');
-const { RecommendationService } = require('./recommendations.service');
+const { RecommendationForUser } = require('./recommendation_for_user');
+const { RecommendationForItem } = require('./recommendation_for_item');
 
 const app = express();
 const port = 3000;
@@ -45,14 +46,17 @@ app.post('/api/register', async (req, res) => {
       [username, hashedPassword, rol]
     );
     const newUser = result.rows[0];
+    console.log('New user created:', newUser);
      // Convertimos el id a string
      const token = jwt.sign({ id: newUser.id.toString(), username: newUser.username, rol: newUser.rol }, SECRET_KEY);
     // Devolvemos el id como string
     res.status(201).json({ ...newUser, id: newUser.id.toString(), token });
   } catch (error) {
     if (error.constraint === 'user_nombre_key') {
+      console.log('Username already exists');
       res.status(400).json({ error: 'Username already exists' });
     } else {
+      console.log('Server error: ' + error.message);
       res.status(500).json({ error: 'Server error: ' + error.message });
     }
   }
@@ -493,14 +497,22 @@ app.get('/api/products/:id/full', async (req, res) => {
   }
 });
 
-app.get('/api/recommendations/:userId', async (req, res) => {
+app.get('/api/recommendations/:user_id/:type', async (req, res) => {
   try {
-    const { userId } = req.params;
-    const recommendationService = new RecommendationService(pool);
-    const recommendations = await recommendationService.getRecommendationsForUser(parseInt(userId));
-    res.status(200).json(recommendations);
+    const { user_id, type } = req.params;
+    var recommendationService;
+    if(type == 1){
+      recommendationService = new RecommendationForUser(pool);
+      console.log("recomendación por usuario");
+    }else{
+      recommendationService = new RecommendationForItem(pool);
+      console.log("recomendación por producto");
+    }
+      const recommendations = await recommendationService.getRecommendations(user_id);
+      console.log(recommendations);
+      res.status(200).json(recommendations);
   } catch (error) {
-    console.error('Error en controller:', error);
+    console.error('Error en recomendaciones:', error);
     res.status(500).json({ error: 'Error al obtener recomendaciones' });
   }
 });
