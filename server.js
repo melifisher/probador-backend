@@ -460,6 +460,81 @@ app.delete('/api/cart/:user_id/:product_id', async (req, res) => {
   }
 });
 
+app.get('/api/devoluciones', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM devolucion');
+    const devoluciones = rows.map(devolucion => ({
+      ...devolucion,
+      id: devolucion.id.toString()
+    }));
+    res.json(devoluciones);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/devoluciones/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query('SELECT * FROM devolucion WHERE id = $1', [id]);
+    console.log(rows[0]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Devolution not found' });
+    }
+    res.status(200).json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/devoluciones', async (req, res) => {
+  try {
+    const { alquiler_id, fecha_devuelto, dias_retraso, estado, user_id } = req.body;
+    const { rows } = await pool.query(
+      'INSERT INTO devolucion (alquiler_id, fecha_devuelto, dias_retraso, estado, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [alquiler_id, fecha_devuelto, dias_retraso, estado, user_id]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/devoluciones/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { alquiler_id, fecha_devuelto, dias_retraso, estado, user_id } = req.body;
+    const { rows } = await pool.query(
+      'UPDATE devolucion SET alquiler_id = $1 AND fecha_devuelto = $2 AND dias_retraso = $3 AND estado = $4 AND user_id = $5 WHERE id = $6 RETURNING *',
+      [alquiler_id, fecha_devuelto, dias_retraso, estado, user_id, id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/api/devoluciones/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query('DELETE FROM devolucion WHERE id = $1 RETURNING *', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+    res.status(204).json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 const cache = new NodeCache({ stdTTL: 3600 }); // Cache for 1 hour
 
 app.get('/api/products/:id/full', async (req, res) => {
