@@ -399,7 +399,7 @@ app.put('/api/rental-details/:alquiler_id/:product_id', async (req, res) => {
 app.delete('/api/rental-details/:alquiler_id/:product_id', async (req, res) => {
   try {
     const { alquiler_id, product_id } = req.params;
-    const { rows } = await pool.query('DELETE FROM detalle_alquiler WHERE alquiler_id = $1 AND product_id = $1 RETURNING *', [alquiler_id, product_id]);
+    const { rows } = await pool.query('DELETE FROM detalle_alquiler WHERE alquiler_id = $1 AND product_id = $2 RETURNING *', [alquiler_id, product_id]);
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Rental detail not found' });
     }
