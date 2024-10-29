@@ -1,4 +1,4 @@
-export class RecommendationForUser {
+class RecommendationForUser {
   constructor(pool) {
       this.pool = pool;
       this.MINIMUM_SIMILARITY_SCORE = 0.3;
@@ -252,3 +252,5 @@ export class RecommendationForUser {
       return result.rows;
   }
 }
+
+module.exports ={ RecommendationForUser, };
