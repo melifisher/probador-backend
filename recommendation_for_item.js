@@ -1,4 +1,4 @@
-export class RecommendationForItem {
+class RecommendationForItem {
   constructor(pool) {
     this.pool = pool;
   }
@@ -128,3 +128,7 @@ export class RecommendationForItem {
     return result.rows;
   }
 }
+// Exportar la clase
+module.exports = {
+  RecommendationForItem,
+};
