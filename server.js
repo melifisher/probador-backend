@@ -460,6 +460,75 @@ app.delete('/api/cart/:user_id/:product_id', async (req, res) => {
   }
 });
 
+////////////////////////Direccion
+// Agregar una nueva dirección
+app.post('/api/address', async (req, res) => {
+  try {
+    const { user_id, street, number, city, latitude, longitude } = req.body;
+    const result = await pool.query(
+      'INSERT INTO address (user_id, street, number, city, latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [user_id, street, number, city, latitude, longitude]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error adding address' });
+  }
+});
+
+// GET: Obtener todas las direcciones de un usuario
+app.get('/api/address/:user_id', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const result = await pool.query(
+      'SELECT * FROM address WHERE user_id = $1',
+      [user_id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error fetching addresses' });
+  }
+});
+
+// PUT: Actualizar una dirección
+app.put('/api/address/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { street, number, city, latitude, longitude } = req.body;
+    const result = await pool.query(
+      'UPDATE address SET street = $1, number = $2, city = $3, latitude = $4, longitude = $5 WHERE id = $6 RETURNING *',
+      [street, number, city, latitude, longitude, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error updating address' });
+  }
+});
+
+// DELETE: Eliminar una dirección
+app.delete('/api/address/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      'DELETE FROM address WHERE id = $1 RETURNING *',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error deleting address' });
+  }
+});
+
+
 app.get('/api/devoluciones', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM devolucion');
@@ -591,6 +660,7 @@ app.get('/api/recommendations/:user_id/:type', async (req, res) => {
     res.status(500).json({ error: 'Error al obtener recomendaciones' });
   }
 });
+
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
