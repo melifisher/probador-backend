@@ -2,7 +2,7 @@ class RecommendationForUser {
   constructor(pool) {
       this.pool = pool;
       this.MINIMUM_SIMILARITY_SCORE = 0.3;
-      this.MINIMUM_COMMON_ITEMS = 3;
+      this.MINIMUM_COMMON_ITEMS = 1;
       this.MINIMUM_RATING_THRESHOLD = 3.5;
   }
 
